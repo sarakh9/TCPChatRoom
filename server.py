@@ -6,18 +6,54 @@ import threading
 IP = '127.0.0.1' # local host
 PORT = 15000
 CONNECTION_LIMIT = 10
+online_users = []
 
-# Public message function
-def public_message(srnder, message):
-    pass
+# Function to send message to one client
+def send_msg_to_client(client, message):
+    client.sendall(message.encode())
 
-# Private message function
-def public_message(srnder, message):
-    pass
+
+# Function to send message to chat
+def send_msg(receivers: list, message):
+    if len(receivers) == 0:
+        receivers = online_users
+    for receiver in receivers:
+        send_msg_to_client(receiver[1], message )
+
+
+# Function to listen for upcoming messages
+def listen_for_msgs(client, username):
+    while 1:
+        msg = client.recv(2048).decode('utf-8')
+        if msg != '':
+            print(f"MESSAGE FROM {username}: {msg}")
+            final_msg = f"""<{username}>{msg}"""
+            send_msg([], final_msg)
+
+        else:
+            print(f"Empty message from client {username}")
+
 
 # Client handler function
 def client_handler(client):
-    pass
+    # Server will listen for client messages with max length of 2048
+    while 1:
+        # Listening for username
+        username = client.recv(1024).decode('utf-8')
+        if username != '':
+            duplicated_username_flag = 0
+            for user in online_users:
+                if username in user:
+                    duplicated_username_flag = 1
+            if duplicated_username_flag:
+                print(f"username '{username}' is duplicated")
+            else:
+                online_users.append((username, client))
+                break
+        else:
+            print("username is empty")
+    # Because we don't want to have conflict with server listening for connection
+    threading.Thread(target=listen_for_msgs, args=(client, username,)).start()
 
 # Main function
 def main():
@@ -42,7 +78,8 @@ def main():
         connectionSocket, addr = serverSocket.accept()
         print(f"Succesfully connected to client with ip: {addr[0]} and port: {addr[1]}")
 
-        # Creat a thread for each connection to handle clients simultaneously
+        # Creat a thread for each connection to handle clients simultaneously 
+        # and not to have conflict with server listening for connections
         threading.Thread(target=client_handler, args=(connectionSocket, )).start()
 
 
