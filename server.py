@@ -23,7 +23,7 @@ def send_msg(receivers: list, message):
 
 # Function to listen for upcoming messages
 def listen_for_msgs(client, username):
-    while 1:
+    while True:
         msg = client.recv(2048).decode('utf-8')
         if msg != '':
             print(f"MESSAGE FROM {username}: {msg}")
@@ -37,7 +37,7 @@ def listen_for_msgs(client, username):
 # Client handler function
 def client_handler(client):
     # Server will listen for client messages with max length of 2048
-    while 1:
+    while True:
         # Listening for username
         username = client.recv(1024).decode('utf-8')
         if username != '':
@@ -49,6 +49,8 @@ def client_handler(client):
                 print(f"username '{username}' is duplicated")
             else:
                 online_users.append((username, client))
+                new_user_msg = f"<CHATBOT> '{username}' joined the chat!"
+                send_msg([], new_user_msg)
                 break
         else:
             print("username is empty")
