@@ -45,8 +45,6 @@ def client_handler(client, username):
                 # !!!! tell user they can't send empty message
     finally:
         pass
-    # Because we don't want to have conflict with server listening for connection
-    # threading.Thread(target=listen_for_msgs, args=(client, username,)).start()
 
 # Main function
 def main():
@@ -71,20 +69,11 @@ def main():
         connectionSocket, addr = serverSocket.accept()
         print(f"[NEW CONNECTION] Succesfully connected to client with ip: {addr[0]} and port: {addr[1]}")
 
-        
-               
-        first_msg = F"""WELCOME TO SIMPLE TCP CHATROOM!
-HERE YOU CAN CREATE AN ACCOUNT, SEND PUBLICK AND PRIVATE MESSAGES.
-IF YOU'RE NEW HERE, TO START SEND THIS MESSAGE TO CREATE YOUR ACCOUNT: REGISTERATION <USERNAME> <PASSWORD>
-AND TO LOGIN SEND THIS MESSAGE: LOGIN <USERNAME> <PASSWORD>.
-NOTE: DO NOT USE SPACE IN YOUR USSERNAME AND IN YOUR PASSWORD!
-NOTE2: AFTER YOU REGISTERED YOU WILL NEED TO RESTART!"""
-        send_msg([('new_conn', connectionSocket)], first_msg)
 
         # Server will listen for client messages with max length of 2048
         # Listening for command login or registration
         command = connectionSocket.recv(1024).decode('utf-8')
-        # check command is not emppty
+        # check command is not empty
         if command != '':
             # split command into its pieces
             control, username, password = command.split(' ')
@@ -93,37 +82,43 @@ NOTE2: AFTER YOU REGISTERED YOU WILL NEED TO RESTART!"""
                 # check if username is not being duplicated
                 duplicated_username_flag = 0
                 users = db.read_usernames()
+                duplicated_username_flag = 0
                 for user in users:
-                    if username == user:
+                    if username == user[0]:
                         duplicated_username_flag = 1
-                    if duplicated_username_flag:
                         print(f"[DUPLICATION] Username '{username}' is duplicated")
+                        send_msg([('~user~', connectionSocket)], "Duplicated username. try again")
                         # !!!!send the message to the client
                         break
+                if duplicated_username_flag == 1:
+                    send_msg([('~user~', connectionSocket)], "closing the connection")
+                    connectionSocket.close()
+                    continue
                 # add new user to database
-                if duplicated_username_flag == 0:
-                    hashed_pswd = hashlib.md5(password.encode())
-                    with lock:
-                        db.insert_into_users((username, hashed_pswd))
-                        print("[REGISTRATION] User {username} added to database")
-                        # !!!!send user a message that they are registered and noe they  can login
-            elif command == LOGIN_MSG:
-                pass
+                hashed_pswd = hashlib.md5(password.encode()).hexdigest()
+                with lock:
+                    db.insert_into_users((username, hashed_pswd))
+                    print(f"[REGISTRATION] User {username} added to database")
+                    send_msg([(username, connectionSocket)], "you are registered")
+                    # !!!!send user a message that they are registered and noe they  can login
+            elif control == LOGIN_MSG:
+                # check if user exist
+                stored_pswd = db.check_user(username)
+                if stored_pswd:
+                    pswd_hashed = hashlib.md5(password.encode()).hexdigest()
+                    if pswd_hashed == stored_pswd[0]:
+                        print("[PASS!]")
+                        online_users.append(('username', connectionSocket))
+                        send_msg([], f"{username} joined the chat room.")
+                        send_msg([(username, connectionSocket)], f"Hi {username}, welcome to the chat room.")
             else:
-                pass
-            duplicated_username_flag = 0
-            for user in online_users:
-                if username in user:
-                    duplicated_username_flag = 1
-            if duplicated_username_flag:
-                print(f"[DUPLICATION] Username '{username}' is duplicated")
-            else:
-                online_users.append((username, connectionSocket))
-                new_user_msg = f"<CHATBOT> '{username}' joined the chat!"
-                send_msg([], new_user_msg)
-                break
+                print("[INCORRECT COMMAND]")
+                send_msg([('~user~', connectionSocket)], "incorrect command")
+                connectionSocket.close()
+                continue
         else:
             print("[EMPTY MSG] Command is empty")
+            connectionSocket.close()
 
         # Creat a thread for each connection to handle clients simultaneously 
         # and not to have conflict with server listening for connections
