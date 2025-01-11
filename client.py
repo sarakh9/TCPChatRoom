@@ -14,6 +14,8 @@ def listen_for_msgs(client):
             print(f"{message}")
         else:
             print('message received from server is empty')
+            break
+
 
 # Function to send message to server
 def send_msg(client):
@@ -37,7 +39,7 @@ def communication(client):
         print("username required")
         exit(0)
     
-    # send_msg(client) i dont know why i put this here!
+    send_msg(client)
 
 # Main function
 def main():
