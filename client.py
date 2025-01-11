@@ -18,7 +18,7 @@ def listen_for_msgs(client):
 # Function to send message to server
 def send_msg(client):
     while True:
-        message = input("Message:")
+        message = input("")
         if message != '':
             client.sendall(message.encode())
         else:
@@ -26,17 +26,18 @@ def send_msg(client):
 
 # Function to communicate with server
 def communication(client):
-    username = input("Enter username: ")
+    # use threads to make sure listen_for_msgs runs all the time without altering the functionality
+    # of the client
+    threading.Thread(target=listen_for_msgs, args=(client, )).start()
+
+    username = input("")
     if username != '':
         client.sendall(username.encode())
     else:
         print("username required")
         exit(0)
-    # use threads to make sure listen_for_msgs runs all the time without altering the functionality
-    # of the client
-    threading.Thread(target=listen_for_msgs, args=(client, )).start()
-
-    send_msg(client)
+    
+    # send_msg(client) i dont know why i put this here!
 
 # Main function
 def main():
