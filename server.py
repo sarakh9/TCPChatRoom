@@ -29,26 +29,61 @@ def send_msg(receivers: list, message):
         send_msg_to_client(receiver[1], message )
 
 
-# Function to listen for upcoming messages
-def listen_for_msgs(client, username):
-    while True:
-        msg = client.recv(2048).decode('utf-8')
-        if msg != '':
-            print(f"MESSAGE FROM {username}: {msg}")
-            final_msg = f"""<{username}>{msg}"""
-            send_msg([], final_msg)
-
-        else:
-            print(f"[EMPTY MSG] Empty message from client {username}")
-
 
 # Client handler function
-def client_handler(client):
-    # Server will listen for client messages with max length of 2048
-    connected = True
-    while connected:
+def client_handler(client, username):
+    try:
+        connected =True
+        while connected:
+            msg = client.recv(2048).decode('utf-8')
+            if msg != '':
+                print(f"MESSAGE FROM {username}: {msg}")
+                final_msg = f"""<{username}>{msg}"""
+                send_msg([], final_msg)
+            else:
+                print("[EMPTY MSG] Message is empty")
+                # !!!! tell user they can't send empty message
+    finally:
+        pass
+    # Because we don't want to have conflict with server listening for connection
+    # threading.Thread(target=listen_for_msgs, args=(client, username,)).start()
+
+# Main function
+def main():
+    # Creating Server Socket using IPV4 address family(AF_INET) and TCP protocol(SOCK_STREAM)
+    serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    # Bind server socket to port 15000 and ip 127.0.0.1
+    try:
+        serverSocket.bind((IP, PORT))
+        print("[SERVER RUNNING]")
+        print(f"SERVER IP:{IP} PORT: {PORT}")
+    except Exception:
+        print(f"[ERROR] Unable to bind to ip {IP} and port {PORT}")
+    
+    # Start listening on port 15000
+    serverSocket.listen(CONNECTION_LIMIT)
+    print("[LISTENING...]")
+
+    # Keep listening for client connection request on loop
+    while True:
+        # Accept connection request, create a connection socket and save the clients address(ip, port)
+        connectionSocket, addr = serverSocket.accept()
+        print(f"[NEW CONNECTION] Succesfully connected to client with ip: {addr[0]} and port: {addr[1]}")
+
+        
+               
+        first_msg = F"""WELCOME TO SIMPLE TCP CHATROOM!
+HERE YOU CAN CREATE AN ACCOUNT, SEND PUBLICK AND PRIVATE MESSAGES.
+IF YOU'RE NEW HERE, TO START SEND THIS MESSAGE TO CREATE YOUR ACCOUNT: REGISTERATION <USERNAME> <PASSWORD>
+AND TO LOGIN SEND THIS MESSAGE: LOGIN <USERNAME> <PASSWORD>.
+NOTE: DO NOT USE SPACE IN YOUR USSERNAME AND IN YOUR PASSWORD!
+NOTE2: AFTER YOU REGISTERED YOU WILL NEED TO RESTART!"""
+        send_msg([('new_conn', connectionSocket)], first_msg)
+
+        # Server will listen for client messages with max length of 2048
         # Listening for command login or registration
-        command = client.recv(1024).decode('utf-8')
+        command = connectionSocket.recv(1024).decode('utf-8')
         # check command is not emppty
         if command != '':
             # split command into its pieces
@@ -83,48 +118,16 @@ def client_handler(client):
             if duplicated_username_flag:
                 print(f"[DUPLICATION] Username '{username}' is duplicated")
             else:
-                online_users.append((username, client))
+                online_users.append((username, connectionSocket))
                 new_user_msg = f"<CHATBOT> '{username}' joined the chat!"
                 send_msg([], new_user_msg)
                 break
         else:
             print("[EMPTY MSG] Command is empty")
-    # Because we don't want to have conflict with server listening for connection
-    threading.Thread(target=listen_for_msgs, args=(client, username,)).start()
-
-# Main function
-def main():
-    # Creating Server Socket using IPV4 address family(AF_INET) and TCP protocol(SOCK_STREAM)
-    serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    # Bind server socket to port 15000 and ip 127.0.0.1
-    try:
-        serverSocket.bind((IP, PORT))
-        print("[SERVER RUNNING]")
-        print(f"SERVER IP:{IP} PORT: {PORT}")
-    except Exception:
-        print(f"[ERROR] Unable to bind to ip {IP} and port {PORT}")
-    
-    # Start listening on port 15000
-    serverSocket.listen(CONNECTION_LIMIT)
-    print("[LISTENING...]")
-
-    # Keep listening for client connection request on loop
-    while True:
-        # Accept connection request, create a connection socket and save the clients address(ip, port)
-        connectionSocket, addr = serverSocket.accept()
-        print(f"[NEW CONNECTION] Succesfully connected to client with ip: {addr[0]} and port: {addr[1]}")
-        first_msg = F"""WELCOME TO SIMPLE TCP CHATROOM!
-HERE YOU CAN CREATE AN ACCOUNT, SEND PUBLICK AND PRIVATE MESSAGES.
-IF YOU'RE NEW HERE, TO START SEND THIS MESSAGE TO CREATE YOUR ACCOUNT: REGISTERATION <USERNAME> <PASSWORD>
-AND TO LOGIN SEND THIS MESSAGE: LOGIN <USERNAME> <PASSWORD>.
-NOTE: DO NOT USE SPACE IN YOUR USSERNAME AND IN YOUR PASSWORD!
-NOTE2: AFTER YOU REGISTERED YOU WILL NEED TO RESTART!"""
-        send_msg([('new_conn', connectionSocket)], first_msg)
 
         # Creat a thread for each connection to handle clients simultaneously 
         # and not to have conflict with server listening for connections
-        threading.Thread(target=client_handler, args=(connectionSocket, )).start()
+        threading.Thread(target=client_handler, args=(connectionSocket, username,)).start()
 
 
 if __name__ == "__main__":
